@@ -221,6 +221,7 @@ async def update_or_create_entity(dev, tern):
 
     if model == "DeviceGroup":
         svc = dev
+        isLight = True
         profile = svc["profile"]
         if profile == PROFILE_LIGHT_GROUP:
             features = SUPPORT_TERNCY_CT
@@ -233,6 +234,12 @@ async def update_or_create_entity(dev, tern):
             return
         temperature = get_attr_value(svc["attributes"], "temperature")
         _LOGGER.info(temperature)
+
+        # No online field for device group
+        brightness = get_attr_value(svc["attributes"], "brightness")
+        if brightness is not None and brightness >= 0:
+            available = True 
+
 
         name = svc["name"]
         if name == "":
@@ -262,6 +269,7 @@ async def update_or_create_entity(dev, tern):
         else:
             for platform in async_get_platforms(tern.hass_platform_data.hass, DOMAIN):
                 if platform.config_entry.unique_id == tern.dev_id:
+                    _LOGGER.info(platform)
                     if profile == PROFILE_PLUG and platform.domain == "switch":
                         await platform.async_add_entities([device])
                         break
@@ -429,6 +437,12 @@ async def async_refresh_devices(hass: HomeAssistant, tern):
     _LOGGER.info("refresh devices now")
     response = await tern.get_entities("device", True)
     devices = response["rsp"]["entities"]
+    _LOGGER.info(response)
+
+    group_response = await tern.get_entities("devicegroup", True)
+    groups = group_response["rsp"]["entities"]
+    _LOGGER.info(group_response)
+
     pdata = tern.hass_platform_data
 
     device_registry = await dr.async_get_registry(hass)
@@ -444,6 +458,9 @@ async def async_refresh_devices(hass: HomeAssistant, tern):
 
     for dev in devices:
         await update_or_create_entity(dev, tern)
+    
+    for group in groups:
+        await update_or_create_entity(group, tern)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
