@@ -191,6 +191,17 @@ def terncy_event_handler(tern, ev):
                         ev_type,
                         event_data,
                     )
+        elif evt_type == "entityCreated":
+            for ent in ents:
+                devid = ent["id"]
+                model = ent["model"] if "model" in ent else ""
+                if model != "TERNCY-SCENE":
+                    return;
+                if devid not in parsed_devices:
+                    _LOGGER.info("[%s] %s is created", tern.dev_id, devid)
+                    hass.async_create_task(update_or_create_entity(ent, tern))
+                else:
+                    _LOGGER.info("dev %s already exists", devid)
         elif evt_type == "entityAvailable":
             for ent in ents:
                 devid = ent["id"]
@@ -229,6 +240,15 @@ def terncy_event_handler(tern, ev):
                 _LOGGER.info("[%s] %s is deleted", tern.dev_id, devid)
                 if devid in parsed_devices:
                     dev = parsed_devices[devid]
+                    if devid.rfind("-") > 0:
+                        prefix = devid[0 : devid.rfind("-")]
+                        if prefix == 'scene':
+                            _LOGGER.info("[%s] %s is delete", tern.dev_id, dev.unique_id)
+                            hass.async_create_task(
+                                platform.async_remove_entity(dev.entity_id)
+                            )
+                            parsed_devices.pop(dev.unique_id)
+                            return
                     dev.is_available = False
                     if dev.hass:
                         dev.schedule_update_ha_state()
